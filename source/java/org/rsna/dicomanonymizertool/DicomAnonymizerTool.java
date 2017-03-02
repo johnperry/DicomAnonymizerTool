@@ -58,6 +58,7 @@ public class DicomAnonymizerTool {
 		}
 		else {
 			System.out.println("Output file was not specified.");
+			System.exit(0);
 		}
 		
 		File scriptFile = new File("dicom-anonymizer.script");
@@ -75,6 +76,7 @@ public class DicomAnonymizerTool {
 		}
 		catch (Exception ex) {
 			System.out.println(inFile + " is not a DicomObject.");
+			System.exit(0);
 		}
 		
 		try {
