@@ -12,8 +12,7 @@ import java.util.*;
 import org.apache.log4j.*;
 import org.rsna.ctp.objects.DicomObject;
 import org.rsna.ctp.stdstages.anonymizer.*;
-import org.rsna.ctp.stdstages.anonymizer.dicom.DAScript;
-import org.rsna.ctp.stdstages.anonymizer.dicom.DICOMAnonymizer;
+import org.rsna.ctp.stdstages.anonymizer.dicom.*;
 
 /**
  * The DicomAnonymizerTool program provides a command-line
@@ -32,47 +31,91 @@ public class DicomAnonymizerTool {
 		Logger.getRootLogger().setLevel(Level.INFO);
 		
 		if (args.length == 0) {
-			System.out.println("Usage: java -jar DicomAnonymizerTool {inputfile} {outputfile} {scriptfile} {lookuptablefile}");
+			System.out.println("Usage: java -jar DicomAnonymizerTool {parameters}");
 			System.out.println("where:");
-			System.out.println("{inputfile} is the file to be anonymized");
-			System.out.println("{outputfile} is the file in which to store the anonymized file.");
-			System.out.println("   If {outputfile} is \'*\', the anonymized file overwrites {inputfile}.");
-			System.out.println("{scriptfile} is the anonymizer script.");
-			System.out.println("   If {scriptfile} is missing, the default script is used.");
-			System.out.println("{lookuptablefile} is the anonymizer lookup table properties file.");
-			System.out.println("   If {lookuptablefile} is missing, the default lookup table is used.");
+			System.out.println("  -in {inputfile} specifies the file to be anonymized");
+			System.out.println("  -out {outputfile} specifies the file in which to store the anonymized file.");
+			System.out.println("       If -out is missing, the anonymized file is named {inputfile}-an.");
+			System.out.println("       If {outputfile} is missing, the anonymized file overwrites {inputfile}");
+			System.out.println("  -da {scriptfile} specifies the anonymizer script.");
+			System.out.println("       If -da is missing, element anonymization is not performed.");
+			System.out.println("       If {scriptfile} is missing, the default script is used.");
+			System.out.println("  -lut {lookuptablefile} specifies the anonymizer lookup table properties file.");
+			System.out.println("       If -lut is missing, the default lookup table is used.");
+			System.out.println("  -dpa {pixelscriptfile} specifies the pixel anonymizer script file.");
+			System.out.println("       If -dpa is missing, pixel anonymization is not performed.");
+			System.out.println("       If {pixelscriptfile} is missing, the default pixel script is used.");
 			System.exit(0);
 		}
 		
-		File inFile = new File(args[0]);
-		if (!inFile.exists()) {
-			System.out.println("Input file ("+args[0]+") does not exist.");
-			System.exit(0);
-		}
-		
-		File outFile = new File(args[0]);
-		if (args.length > 1) {
-			if (!args[1].equals("*")) {
-				outFile = new File(args[1]);
+		Hashtable<String,String> argsTable = new Hashtable<String,String>();
+		String switchName = null;
+		for (String arg : args) {
+			if (arg.startsWith("-")) {
+				switchName = arg;
+				argsTable.put(switchName, "");
+			}
+			else {
+				if (switchName != null) {
+					argsTable.put(switchName, arg);
+					switchName = null;
+				}
 			}
 		}
-		else {
-			System.out.println("Output file was not specified.");
+
+		String path = argsTable.get("-in");
+		if (path == null) {
+			System.out.println("Input file was not specified.");
+			System.exit(0);
+		}
+		File inFile = new File(path);
+		if (!inFile.exists()) {
+			System.out.println("Input file ("+path+") does not exist.");
 			System.exit(0);
 		}
 		
-		File scriptFile = new File("dicom-anonymizer.script");
-		if (args.length > 2) {
-			scriptFile = new File(args[2]);
+		path = argsTable.get("-out");
+		File outFile = inFile;
+		if (path == null) {
+			File f = new File(inFile.getAbsolutePath());
+			String name = f.getName();
+			if (name.toLowerCase().endsWith(".dcm")) {
+				name = name.substring(0, name.length()-4) 
+						+ "-an" 
+						+ name.substring(name.length()-4);
+			}
+			else name += "-an";
+			outFile = new File(f.getParentFile(), name);
+		}
+		else if (!path.equals("")) {
+			outFile = new File(path);
+		}
+		
+		File daScriptFile = new File("dicom-anonymizer.script");
+		path = argsTable.get("-da");
+		if (path == null) daScriptFile = null;
+		else if (!path.equals("")) {
+			daScriptFile = new File(path);
 		}
 		
 		File lookupTableFile = new File("lookup-table.properties");
-		if (args.length > 3) {
-			lookupTableFile = new File(args[3]);
+		path = argsTable.get("-lut");
+		if ((path != null) && !path.equals("")) {
+			lookupTableFile = new File(path);
 		}
 		
+		File dpaScriptFile = new File("dicom-pixel-anonymizer.script");
+		path = argsTable.get("-dpa");
+		if (path == null) dpaScriptFile = null;
+		else if (!path.equals("")) {
+			dpaScriptFile = new File(path);
+		}
+		
+		DicomObject dob = null;
+		boolean isImage = false;
 		try {
-			DicomObject dob = new DicomObject(inFile);
+			dob = new DicomObject(inFile);
+			isImage = dob.isImage();
 		}
 		catch (Exception ex) {
 			System.out.println(inFile + " is not a DicomObject.");
@@ -80,13 +123,41 @@ public class DicomAnonymizerTool {
 		}
 		
 		try {
-			DAScript dascript = DAScript.getInstance(scriptFile);
-			Properties script = dascript.toProperties();
-			Properties lookup = LookupTable.getProperties(lookupTableFile);
-			IntegerTable intTable = null;
-			AnonymizerStatus status =
-						DICOMAnonymizer.anonymize(inFile, outFile, script, lookup, intTable, false, false);
-			System.out.println("The DicomAnonymizer returned "+status.getStatus()+".");
+			System.out.println("Anonymizing "+inFile);
+			
+			//Run the DICOMPixelAnonymizer first before the elements used
+			//in signature matching are modified by the DicomAnonymizer.
+			if (dpaScriptFile != null) {
+				if (isImage) {
+					File file = outFile;
+					PixelScript pixelScript = new PixelScript(dpaScriptFile);
+					if (pixelScript != null) {
+						Signature signature = pixelScript.getMatchingSignature(dob);
+						if (signature != null) {
+							Regions regions = signature.regions;
+							if ((regions != null) && (regions.size() > 0)) {
+								AnonymizerStatus status = DICOMPixelAnonymizer.anonymize(inFile, outFile, regions, true, false);
+								System.out.println("...The DICOMPixelAnonymizer returned "+status.getStatus()+".");
+								if (status.isOK()) inFile = outFile;
+								else System.out.println("...Aborting the process");
+							}
+						}
+						else System.out.println("...No matching signature found for pixel anonymization.");
+					}
+				}
+				else System.out.println("...Pixel anonymization skipped - not an image.");
+			}
+			
+			//Now run the DICOMAnonymizer
+			if (daScriptFile != null) {
+				DAScript daScript = DAScript.getInstance(daScriptFile);
+				Properties daScriptProps = daScript.toProperties();
+				Properties lutProps = LookupTable.getProperties(lookupTableFile);
+				IntegerTable intTable = null;
+				AnonymizerStatus status =
+							DICOMAnonymizer.anonymize(inFile, outFile, daScriptProps, lutProps, intTable, false, false);
+				System.out.println("...The DICOMAnonymizer returned "+status.getStatus()+".");
+			}			
 		}
 		catch (Exception ex) {
 			ex.printStackTrace();
