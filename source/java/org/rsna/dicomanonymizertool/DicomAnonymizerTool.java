@@ -139,7 +139,10 @@ public class DicomAnonymizerTool {
 								AnonymizerStatus status = DICOMPixelAnonymizer.anonymize(inFile, outFile, regions, true, false);
 								System.out.println("...The DICOMPixelAnonymizer returned "+status.getStatus()+".");
 								if (status.isOK()) inFile = outFile;
-								else System.out.println("...Aborting the process");
+								else {
+									System.out.println("...Aborting the process");
+									System.exit(0);
+								}
 							}
 						}
 						else System.out.println("...No matching signature found for pixel anonymization.");
@@ -157,7 +160,12 @@ public class DicomAnonymizerTool {
 				AnonymizerStatus status =
 							DICOMAnonymizer.anonymize(inFile, outFile, daScriptProps, lutProps, intTable, false, false);
 				System.out.println("...The DICOMAnonymizer returned "+status.getStatus()+".");
-			}			
+				if (!status.isOK()) {
+					System.out.println("...Aborting the process");
+					System.exit(0);
+				}
+			}
+			System.out.println("...Anonymized file: "+outFile);
 		}
 		catch (Exception ex) {
 			ex.printStackTrace();
