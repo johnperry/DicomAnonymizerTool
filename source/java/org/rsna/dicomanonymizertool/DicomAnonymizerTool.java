@@ -122,6 +122,9 @@ public class DicomAnonymizerTool {
 			System.exit(0);
 		}
 		
+		boolean testmode = (argsTable.get("-test") != null);
+		boolean setBIRElement = true;
+		
 		try {
 			System.out.println("Anonymizing "+inFile);
 			
@@ -136,7 +139,7 @@ public class DicomAnonymizerTool {
 						if (signature != null) {
 							Regions regions = signature.regions;
 							if ((regions != null) && (regions.size() > 0)) {
-								AnonymizerStatus status = DICOMPixelAnonymizer.anonymize(inFile, outFile, regions, true, false);
+								AnonymizerStatus status = DICOMPixelAnonymizer.anonymize(inFile, outFile, regions, setBIRElement, testmode);
 								System.out.println("...The DICOMPixelAnonymizer returned "+status.getStatus()+".");
 								if (status.isOK()) inFile = outFile;
 								else {
