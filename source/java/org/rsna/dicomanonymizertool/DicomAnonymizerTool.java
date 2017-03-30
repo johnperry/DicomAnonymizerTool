@@ -45,6 +45,8 @@ public class DicomAnonymizerTool {
 			System.out.println("  -dpa {pixelscriptfile} specifies the pixel anonymizer script file.");
 			System.out.println("       If -dpa is missing, pixel anonymization is not performed.");
 			System.out.println("       If {pixelscriptfile} is missing, the default pixel script is used.");
+			System.out.println("  -dpa {pixelscriptfile} specifies the pixel anonymizer script file.");
+			System.out.println("  -test specifies that the pixel anonymizer is to blank regions in mid-gray.");
 			System.exit(0);
 		}
 		
