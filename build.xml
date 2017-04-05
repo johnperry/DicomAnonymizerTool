@@ -61,7 +61,7 @@
 			includeantruntime="false"
 			debug="true" debuglevel="lines,vars,source"/>
 
-		<jar destfile="${products}/DicomAnonymizerTool.jar">
+		<jar destfile="${products}/DAT.jar">
 			<manifest>
 				<attribute name="Main-Class" value="org.rsna.dicomanonymizertool.DicomAnonymizerTool"/>
 				<attribute name="Class-Path" value="dcm4che.jar log4j.jar CTP.jar util.jar pixelmed_codec.jar dcm4che-imageio-rle-2.0.25.jar"/>
@@ -73,7 +73,7 @@
 		<mkdir dir="${build}/DicomAnonymizerTool"/>
 
 		<copy overwrite="true" todir="${build}/DicomAnonymizerTool">
-			<fileset dir="${products}" includes="DicomAnonymizerTool.jar"/>
+			<fileset dir="${products}" includes="DAT.jar"/>
 			<fileset dir="${libraries}" includes="*.*"/>
 			<fileset dir="${files}" includes="*.*"/>
 		</copy>
@@ -89,7 +89,7 @@
 				includes="${dicomanonymizertool}/Installer** ${installer}/** DicomAnonymizerTool/**"/>
 		</jar>
 
-		<delete file="${products}/DicomAnonymizerTool.jar"/>
+		<delete file="${products}/DAT.jar"/>
 
 	</target>
 

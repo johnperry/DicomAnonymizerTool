@@ -33,10 +33,14 @@ public class DicomAnonymizerTool {
 		if (args.length == 0) {
 			System.out.println("Usage: java -jar DicomAnonymizerTool {parameters}");
 			System.out.println("where:");
-			System.out.println("  -in {inputfile} specifies the file to be anonymized");
-			System.out.println("  -out {outputfile} specifies the file in which to store the anonymized file.");
-			System.out.println("       If -out is missing, the anonymized file is named {inputfile}-an.");
-			System.out.println("       If {outputfile} is missing, the anonymized file overwrites {inputfile}");
+			System.out.println("  -in {input} specifies the file or directory to be anonymized");
+			System.out.println("       If {input} is a directory, all files in it and its subdirectories are processed.");
+			System.out.println("  -out {output} specifies the file or directory in which to store the anonymized file or files.");
+			System.out.println("       If -out is missing and -in specifies a file, the anonymized file is named {input}-an.");
+			System.out.println("       If -out is missing and -in specifies a directory, an output directory named {input}-an is created.");
+			System.out.println("       If {output} is missing and -in specifies a file, the anonymized file overwrites {input}");
+			System.out.println("       If {output} is present and -in specifies a file, the anonymized file is named {output}");
+			System.out.println("       If {output} is present and -in specifies a directory, an output directory named {output} is created.");
 			System.out.println("  -da {scriptfile} specifies the anonymizer script.");
 			System.out.println("       If -da is missing, element anonymization is not performed.");
 			System.out.println("       If {scriptfile} is missing, the default script is used.");
@@ -66,12 +70,12 @@ public class DicomAnonymizerTool {
 
 		String path = argsTable.get("-in");
 		if (path == null) {
-			System.out.println("Input file was not specified.");
+			System.out.println("Input path was not specified.");
 			System.exit(0);
 		}
 		File inFile = new File(path);
 		if (!inFile.exists()) {
-			System.out.println("Input file ("+path+") does not exist.");
+			System.out.println("Input path ("+path+") does not exist.");
 			System.exit(0);
 		}
 		
@@ -90,6 +94,13 @@ public class DicomAnonymizerTool {
 		}
 		else if (!path.equals("")) {
 			outFile = new File(path);
+		}
+		if (inFile.isDirectory()) {
+			if (outFile.exists() && outFile.isFile()) {
+				System.out.println("Output path ("+path+") exists but it is not a directory.");
+				System.exit(0);
+			}				
+			outFile.mkdirs();
 		}
 		
 		File daScriptFile = new File("dicom-anonymizer.script");
@@ -112,6 +123,56 @@ public class DicomAnonymizerTool {
 			dpaScriptFile = new File(path);
 		}
 		
+		boolean testmode = (argsTable.get("-test") != null);
+		boolean setBIRElement = true;
+		
+		DicomAnonymizerTool anonymizer =
+			new DicomAnonymizerTool(
+				daScriptFile, lookupTableFile, dpaScriptFile, setBIRElement, testmode);
+		anonymizer.anonymize(inFile, outFile);
+		System.out.println("\nDone.");
+	}
+	
+	public File daScriptFile;
+	public File lookupTableFile;
+	public File dpaScriptFile;
+	public boolean setBIRElement;
+	public boolean testmode;
+
+	public DicomAnonymizerTool(
+			File daScriptFile, 
+			File lookupTableFile, 
+			File dpaScriptFile, 
+			boolean setBIRElement, 
+			boolean testmode) {
+				
+		this.daScriptFile = daScriptFile;
+		this.lookupTableFile = lookupTableFile;
+		this.dpaScriptFile = dpaScriptFile;
+		this.setBIRElement = setBIRElement;
+		this.testmode = testmode;
+	}
+	
+	public void anonymize(File inFile, File outFile) { 
+		if (inFile.isFile()) {
+			process(inFile, outFile);			
+		}
+		else {
+			File[] files = inFile.listFiles();
+			for (File file : files) {
+				if (file.isDirectory()) {
+					File dir = new File(outFile, file.getName());
+					dir.mkdirs();
+					anonymize(file, dir);
+				}
+				else {
+					anonymize(file, new File(outFile, file.getName()));
+				}
+			}
+		}
+	}
+	
+	public void process(File inFile, File outFile) { 
 		DicomObject dob = null;
 		boolean isImage = false;
 		try {
@@ -120,11 +181,7 @@ public class DicomAnonymizerTool {
 		}
 		catch (Exception ex) {
 			System.out.println(inFile + " is not a DicomObject.");
-			System.exit(0);
 		}
-		
-		boolean testmode = (argsTable.get("-test") != null);
-		boolean setBIRElement = true;
 		
 		try {
 			System.out.println("Anonymizing "+inFile);
@@ -164,20 +221,19 @@ public class DicomAnonymizerTool {
 				AnonymizerStatus status =
 							DICOMAnonymizer.anonymize(inFile, outFile, daScriptProps, lutProps, intTable, false, false);
 				System.out.println("...The DICOMAnonymizer returned "+status.getStatus()+".");
-				if (!status.isOK()) {
+				if (status.isOK()) {
+					System.out.println("...Anonymized file: "+outFile);
+				}
+				else {
 					System.out.println("...Aborting the process");
 					System.exit(0);
 				}
 			}
-			System.out.println("...Anonymized file: "+outFile);
 		}
 		catch (Exception ex) {
 			ex.printStackTrace();
-		}		
+			System.exit(0);
+		}
     }
 
-	/**
-	 * Class constructor; empty program main class.
-	 */
-    public DicomAnonymizerTool() { }
 }

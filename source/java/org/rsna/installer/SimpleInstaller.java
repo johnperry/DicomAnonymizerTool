@@ -203,10 +203,12 @@ public class SimpleInstaller extends JFrame {
 
 	//Backup a file by copying it to name.ext-bak
 	private boolean backup(File file) {
+		/*
 		if (!file.exists()) return false;
 		File bak = new File(file.getParentFile(),file.getName()+"-bak");
 		if (bak.exists()) bak.delete();
 		copyFile(file,bak);
+		*/
 		return true;
 	}
 
