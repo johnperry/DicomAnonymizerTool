@@ -179,12 +179,11 @@ public class DicomAnonymizerTool {
 			dob = new DicomObject(inFile);
 			isImage = dob.isImage();
 		}
-		catch (Exception ex) {
-			System.out.println(inFile + " is not a DicomObject.");
-		}
+		catch (Exception ex) { return; }
 		
 		try {
 			System.out.println("Anonymizing "+inFile);
+			boolean ok = false;
 			
 			//Run the DICOMPixelAnonymizer first before the elements used
 			//in signature matching are modified by the DicomAnonymizer.
@@ -199,10 +198,13 @@ public class DicomAnonymizerTool {
 							if ((regions != null) && (regions.size() > 0)) {
 								AnonymizerStatus status = DICOMPixelAnonymizer.anonymize(inFile, outFile, regions, setBIRElement, testmode);
 								System.out.println("...The DICOMPixelAnonymizer returned "+status.getStatus()+".");
-								if (status.isOK()) inFile = outFile;
+								if (status.isOK()) {
+									inFile = outFile;
+									ok = true;
+								}
 								else {
-									System.out.println("...Aborting the process");
-									System.exit(0);
+									System.out.println("...Aborting the processing of this file");
+									return;
 								}
 							}
 						}
@@ -222,13 +224,14 @@ public class DicomAnonymizerTool {
 							DICOMAnonymizer.anonymize(inFile, outFile, daScriptProps, lutProps, intTable, false, false);
 				System.out.println("...The DICOMAnonymizer returned "+status.getStatus()+".");
 				if (status.isOK()) {
-					System.out.println("...Anonymized file: "+outFile);
+					ok = true;
 				}
 				else {
-					System.out.println("...Aborting the process");
-					System.exit(0);
+					System.out.println("...Aborting the processing of this file");
+					return;
 				}
 			}
+			if (ok) System.out.println("...Anonymized file: "+outFile);
 		}
 		catch (Exception ex) {
 			ex.printStackTrace();
