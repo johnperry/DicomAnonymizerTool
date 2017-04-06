@@ -130,7 +130,7 @@ public class DicomAnonymizerTool {
 			new DicomAnonymizerTool(
 				daScriptFile, lookupTableFile, dpaScriptFile, setBIRElement, testmode);
 		anonymizer.anonymize(inFile, outFile);
-		System.out.println("\nDone.");
+		System.out.println("Done.");
 	}
 	
 	public File daScriptFile;
@@ -179,7 +179,10 @@ public class DicomAnonymizerTool {
 			dob = new DicomObject(inFile);
 			isImage = dob.isImage();
 		}
-		catch (Exception ex) { return; }
+		catch (Exception ex) {
+			System.out.println("Skipping non-DICOM file: "+inFile);
+			return;
+		}
 		
 		try {
 			System.out.println("Anonymizing "+inFile);
