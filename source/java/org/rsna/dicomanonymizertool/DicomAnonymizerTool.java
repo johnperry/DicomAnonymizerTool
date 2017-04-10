@@ -9,6 +9,7 @@ package org.rsna.dicomanonymizertool;
 
 import java.io.*;
 import java.util.*;
+import java.util.jar.*;
 import org.apache.log4j.*;
 import org.rsna.ctp.objects.*;
 import org.rsna.ctp.stdstages.anonymizer.*;
@@ -51,8 +52,8 @@ public class DicomAnonymizerTool {
 			System.out.println("       If -dpa is missing, pixel anonymization is not performed.");
 			System.out.println("       If {pixelscriptfile} is missing, the default pixel script is used.");
 			System.out.println("  -test specifies that the pixel anonymizer is to blank regions in mid-gray.");
-			System.out.println("");
-			checkImageIIOTools(true);
+ 			System.out.println("");
+			checkConfig();
 			System.exit(0);
 		}
 		
@@ -154,7 +155,6 @@ public class DicomAnonymizerTool {
 		this.dpaScriptFile = dpaScriptFile;
 		this.setBIRElement = setBIRElement;
 		this.testmode = testmode;
-		checkImageIIOTools( (dpaScriptFile != null) );		
 	}
 	
 	public void anonymize(File inFile, File outFile) { 
@@ -246,30 +246,76 @@ public class DicomAnonymizerTool {
 		}
     }
 
-	private static void checkImageIIOTools(boolean force) {
-		if (force) {
-			String osName = System.getProperty("os.name");
-			String dataModel = System.getProperty("sun.arch.data.model");
-			String javaHome = System.getProperty("java.home");
-			File javaHomeDir = new File(javaHome);
-			File binDir = new File(javaHomeDir, "bin");
-			File extDir = new File( new File(javaHomeDir, "lib"), "ext");
-			File clib = FileUtil.getFile(extDir, "clibwrapper_jiio", ".jar");
-			File jai = FileUtil.getFile(extDir, "jai_imageio", ".jar");
-			File clibjiio = FileUtil.getFile(binDir, "clib_jiio", ".dll");
-			File clibjiiosse2 = FileUtil.getFile(binDir, "clib_jiio_sse2", ".dll");
-			File clibjiioutil = FileUtil.getFile(binDir, "clib_jiio_util", ".dll");
+	private static void checkConfig() {
+		String osName = System.getProperty("os.name");
+		String dataModel = System.getProperty("sun.arch.data.model");
+		String javaHome = System.getProperty("java.home");
+		String javaVersion = System.getProperty("java.version");
+		File javaHomeDir = new File(javaHome);
+		File binDir = new File(javaHomeDir, "bin");
+		File extDir = new File( new File(javaHomeDir, "lib"), "ext");
+		File clib = FileUtil.getFile(extDir, "clibwrapper_jiio", ".jar");
+		File jai = FileUtil.getFile(extDir, "jai_imageio", ".jar");
+		File clibjiio = FileUtil.getFile(binDir, "clib_jiio", ".dll");
+		File clibjiiosse2 = FileUtil.getFile(binDir, "clib_jiio_sse2", ".dll");
+		File clibjiioutil = FileUtil.getFile(binDir, "clib_jiio_util", ".dll");
 
-			boolean is32bits = dataModel.equals("32");
-			boolean isWindows = osName.toLowerCase().contains("windows");
-			boolean hasImageIOTools = (clib != null) && (jai != null);
-			boolean hasDLLs = (clibjiio != null) && (clibjiiosse2 != null) && (clibjiioutil != null);
+		boolean is32bits = dataModel.equals("32");
+		boolean isWindows = osName.toLowerCase().contains("windows");
+		boolean hasImageIOTools = (clib != null) && (jai != null);
+		boolean hasDLLs = (clibjiio != null) && (clibjiiosse2 != null) && (clibjiioutil != null);
 
-			if (isWindows) {
-				if (!is32bits) System.out.println("This "+osName+" system has a "+dataModel+" bit Java. It must be 32 bits.");
-				if (!hasImageIOTools) System.out.println("This Java does not have the ImageIOTools installed.");
-				if (hasImageIOTools && !hasDLLs) System.out.println("This Java does not have the ImageIOTools native code extensions installed.");
+		String imageIOVersion = null;
+		if (hasImageIOTools) {
+			Hashtable<String,String> jaiManifest = getManifestAttributes(jai);
+			imageIOVersion  = jaiManifest.get("Implementation-Version");
+		}
+		
+		System.out.println("Configuration:");
+		System.out.println("os.name:               "+osName);
+		System.out.println("java.version:          "+javaVersion);
+		System.out.println("sun.arch.data.model:   "+dataModel);
+		System.out.println("java.home:             "+javaHome);
+		System.out.println("java.home directory:   "+javaHomeDir);
+		System.out.println("clib:                  "+handleNull(clib));
+		System.out.println("jai:                   "+handleNull(jai));
+		System.out.println("jiio:                  "+handleNull(clibjiio));
+		System.out.println("jiio sse2:             "+handleNull(clibjiiosse2));
+		System.out.println("jiio util:             "+handleNull(clibjiioutil));
+		System.out.println("ImageIO Tools version: "+imageIOVersion);
+		System.out.println("");
+
+		if (isWindows) {
+			if (!is32bits) System.out.println("This "+osName+" system has a "+dataModel+" bit Java. It must be 32 bits.");
+			if (!hasImageIOTools) System.out.println("This Java does not have the ImageIOTools installed.");
+			else {
+				if (!imageIOVersion.equals("1.1")) System.out.println("The ImageIOTools version is "+imageIOVersion+". It must be 1.1.");
+				if (!hasDLLs) System.out.println("This Java does not have the ImageIOTools native code extensions installed.");
 			}
 		}
 	}
+	
+	private static String handleNull(File file) {
+		if (file == null) return "null";
+		return file.getAbsolutePath();
+	}
+	
+	private static Hashtable<String,String> getManifestAttributes(File jarFile) {
+		Hashtable<String,String> h = new Hashtable<String,String>();
+		JarFile jar = null;
+		try {
+			jar = new JarFile(jarFile);
+			Manifest manifest = jar.getManifest();
+			Attributes attrs = manifest.getMainAttributes();
+			Iterator it = attrs.keySet().iterator();
+			while (it.hasNext()) {
+				String key = it.next().toString();
+				h.put(key, attrs.getValue(key));
+			}
+		}
+		catch (Exception ex) { }
+		FileUtil.close(jar);
+		return h;
+	}
+
 }
