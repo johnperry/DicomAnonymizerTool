@@ -33,7 +33,7 @@ public class DicomAnonymizerTool {
 		Logger.getRootLogger().setLevel(Level.INFO);
 		
 		if (args.length == 0) {
-			System.out.println("Usage: java -jar DicomAnonymizerTool {parameters}");
+			System.out.println("Usage: java -jar DAT {parameters}");
 			System.out.println("where:");
 			System.out.println("  -in {input} specifies the file or directory to be anonymized");
 			System.out.println("       If {input} is a directory, all files in it and its subdirectories are processed.");
@@ -286,10 +286,19 @@ public class DicomAnonymizerTool {
 		System.out.println("");
 
 		if (isWindows) {
-			if (!is32bits) System.out.println("This "+osName+" system has a "+dataModel+" bit Java. It must be 32 bits.");
-			if (!hasImageIOTools) System.out.println("This Java does not have the ImageIOTools installed.");
+			if (!is32bits) {
+				System.out.println("This "+osName+" system has a "+dataModel+" bit Java.");
+				System.out.println("It must be 32 bits if pixel anonymization is requested.");
+			}
+			if (!hasImageIOTools) {
+				System.out.println("This Java does not have the ImageIOTools installed.");
+				System.out.println("The ImageIOTools are required only for pixel anonymization.");
+			}
 			else {
-				if (!imageIOVersion.equals("1.1")) System.out.println("The ImageIOTools version is "+imageIOVersion+". It must be 1.1.");
+				if (!imageIOVersion.equals("1.1")) {
+					System.out.println("The ImageIOTools version is "+imageIOVersion+".");
+					System.out.println("Version 1.1 or later is required for pixel anonymization.");
+				}
 				if (!hasDLLs) System.out.println("This Java does not have the ImageIOTools native code extensions installed.");
 			}
 		}
