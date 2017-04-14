@@ -52,6 +52,7 @@ public class DicomAnonymizerTool {
 			System.out.println("       If -dpa is missing, pixel anonymization is not performed.");
 			System.out.println("       If {pixelscriptfile} is missing, the default pixel script is used.");
 			System.out.println("  -test specifies that the pixel anonymizer is to blank regions in mid-gray.");
+ 			System.out.println("  -v specifies verbose output");
  			System.out.println("");
 			checkConfig();
 			System.exit(0);
@@ -128,12 +129,13 @@ public class DicomAnonymizerTool {
 		}
 		
 		boolean testmode = (argsTable.get("-test") != null);
+		boolean verbose = (argsTable.get("-v") != null);
 		boolean setBIRElement = true;
 		
 		DicomAnonymizerTool anonymizer =
 			new DicomAnonymizerTool(
-				daScriptFile, lookupTableFile, dpaScriptFile, setBIRElement, testmode);
-		anonymizer.anonymize(inFile, outFile);
+				daScriptFile, lookupTableFile, dpaScriptFile, setBIRElement, testmode, verbose);
+		anonymizer.go(inFile, outFile);
 		System.out.println("Done.");
 	}
 	
@@ -142,24 +144,36 @@ public class DicomAnonymizerTool {
 	public File dpaScriptFile;
 	public boolean setBIRElement;
 	public boolean testmode;
+	public boolean verbose = false;
 
 	public DicomAnonymizerTool(
 			File daScriptFile, 
 			File lookupTableFile, 
 			File dpaScriptFile, 
 			boolean setBIRElement, 
-			boolean testmode) {
+			boolean testmode,
+			boolean verbose) {
 				
 		this.daScriptFile = daScriptFile;
 		this.lookupTableFile = lookupTableFile;
 		this.dpaScriptFile = dpaScriptFile;
 		this.setBIRElement = setBIRElement;
 		this.testmode = testmode;
+		this.verbose = verbose;
+	}
+	
+	public void go(File inFile, File outFile) {
+		long startTime = System.currentTimeMillis();
+		anonymize(inFile, outFile);
+		long endTime = System.currentTimeMillis();
+		double elapsedTime = ((double)(endTime - startTime))/1000.;
+		String s = String.format("----\nElapsed time: %.3f",elapsedTime);
+		System.out.println(s);
 	}
 	
 	public void anonymize(File inFile, File outFile) { 
 		if (inFile.isFile()) {
-			process(inFile, outFile);			
+			System.out.print(process(inFile, outFile));			
 		}
 		else {
 			File[] files = inFile.listFiles();
@@ -176,7 +190,8 @@ public class DicomAnonymizerTool {
 		}
 	}
 	
-	public void process(File inFile, File outFile) { 
+	public String process(File inFile, File outFile) {
+		StringBuffer sb = new StringBuffer();
 		DicomObject dob = null;
 		boolean isImage = false;
 		try {
@@ -184,12 +199,16 @@ public class DicomAnonymizerTool {
 			isImage = dob.isImage();
 		}
 		catch (Exception ex) {
-			System.out.println("Skipping non-DICOM file: "+inFile);
-			return;
+			if (verbose) {
+				sb.append("----\nThread: "+Thread.currentThread().getName()+": ");
+				sb.append("Skipping non-DICOM file: "+inFile+"\n");
+			}
+			return sb.toString();
 		}
 		
+		sb.append("----\nThread: "+Thread.currentThread().getName()+": ");
 		try {
-			System.out.println("Anonymizing "+inFile);
+			sb.append("Anonymizing "+inFile+"\n");
 			boolean ok = false;
 			
 			//Run the DICOMPixelAnonymizer first before the elements used
@@ -204,21 +223,21 @@ public class DicomAnonymizerTool {
 							Regions regions = signature.regions;
 							if ((regions != null) && (regions.size() > 0)) {
 								AnonymizerStatus status = DICOMPixelAnonymizer.anonymize(inFile, outFile, regions, setBIRElement, testmode);
-								System.out.println("...The DICOMPixelAnonymizer returned "+status.getStatus()+".");
+								if (verbose) sb.append("   The DICOMPixelAnonymizer returned "+status.getStatus()+".\n");
 								if (status.isOK()) {
 									inFile = outFile;
 									ok = true;
 								}
 								else {
-									System.out.println("...Aborting the processing of this file");
-									return;
+									if (verbose) sb.append("   Aborting the processing of this file.\n");
+									return sb.toString();
 								}
 							}
 						}
-						else System.out.println("...No matching signature found for pixel anonymization.");
+						else if (verbose) sb.append("   No matching signature found for pixel anonymization.\n");
 					}
 				}
-				else System.out.println("...Pixel anonymization skipped - not an image.");
+				else if (verbose) sb.append("   Pixel anonymization skipped - not an image.\n");
 			}
 			
 			//Now run the DICOMAnonymizer
@@ -229,21 +248,23 @@ public class DicomAnonymizerTool {
 				IntegerTable intTable = null;
 				AnonymizerStatus status =
 							DICOMAnonymizer.anonymize(inFile, outFile, daScriptProps, lutProps, intTable, false, false);
-				System.out.println("...The DICOMAnonymizer returned "+status.getStatus()+".");
+				if (verbose) sb.append("   The DICOMAnonymizer returned "+status.getStatus()+".\n");
 				if (status.isOK()) {
 					ok = true;
 				}
 				else {
-					System.out.println("...Aborting the processing of this file");
-					return;
+					if (verbose) sb.append("   Aborting the processing of this file\n");
+					return sb.toString();
 				}
 			}
-			if (ok) System.out.println("...Anonymized file: "+outFile);
+			if (ok) sb.append("   Anonymized file: "+outFile+"\n");
+			else sb.append("   Anonymization failed.");
 		}
 		catch (Exception ex) {
 			ex.printStackTrace();
 			System.exit(0);
 		}
+		return sb.toString();
     }
 
 	private static void checkConfig() {
