@@ -7,6 +7,7 @@
 
 package org.rsna.dicomanonymizertool;
 
+import java.awt.image.BufferedImage;
 import java.io.*;
 import java.util.*;
 import java.util.jar.*;
@@ -19,7 +20,6 @@ import org.rsna.util.FileUtil;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-
 
 /**
  * The DicomAnonymizerTool program provides a command-line
@@ -57,6 +57,12 @@ public class DicomAnonymizerTool {
 			System.out.println("       If -dpa is missing, pixel anonymization is not performed.");
 			System.out.println("       If {pixelscriptfile} is missing, the default pixel script is used.");
 			System.out.println("  -test specifies that the pixel anonymizer is to blank regions in mid-gray.");
+			System.out.println("  -check {frame} specifies that the anonymized image is to be tested to ensure that the images load.");
+			System.out.println("       If -check is missing, no frame checking is done.");
+			System.out.println("       If {frame} is missing, only the last frame is checked.");
+			System.out.println("       If {frame} is specified as first, only the first frame is checked.");
+			System.out.println("       If {frame} is specified as last, only the last frame is checked.");
+			System.out.println("       If {frame} is specified as all, all frames are checked.");
  			System.out.println("  -n {threads} specifies the number of parallel threads used for processing.");
  			System.out.println("  -v specifies verbose output");
  			System.out.println("");
@@ -134,6 +140,8 @@ public class DicomAnonymizerTool {
 			dpaScriptFile = new File(path);
 		}
 		
+		String check = argsTable.get("-check");
+		
 		boolean testmode = (argsTable.get("-test") != null);
 		int maxThreads = 1;
 		try { maxThreads = Integer.parseInt(argsTable.get("-n")); }
@@ -144,7 +152,7 @@ public class DicomAnonymizerTool {
 		
 		DicomAnonymizerTool anonymizer =
 			new DicomAnonymizerTool(
-				daScriptFile, lookupTableFile, dpaScriptFile, setBIRElement, testmode, maxThreads, verbose);
+				daScriptFile, lookupTableFile, dpaScriptFile, setBIRElement, testmode, check, maxThreads, verbose);
 		anonymizer.go(inFile, outFile);
 	}
 	
@@ -153,6 +161,7 @@ public class DicomAnonymizerTool {
 	public File dpaScriptFile;
 	public boolean setBIRElement;
 	public boolean testmode;
+	public String check;
 	public int maxThreads;
 	public boolean verbose = false;
 	final ThreadPoolExecutor execSvc;
@@ -166,6 +175,7 @@ public class DicomAnonymizerTool {
 			File dpaScriptFile, 
 			boolean setBIRElement, 
 			boolean testmode,
+			String check,
 			int maxThreads,
 			boolean verbose) {
 				
@@ -174,6 +184,7 @@ public class DicomAnonymizerTool {
 		this.dpaScriptFile = dpaScriptFile;
 		this.setBIRElement = setBIRElement;
 		this.testmode = testmode;
+		this.check = check;
 		this.maxThreads = maxThreads;
 		this.verbose = verbose;
 		
@@ -297,7 +308,38 @@ public class DicomAnonymizerTool {
 						parent.notify(sb.toString());
 					}
 				}
-				if (ok) sb.append("   Anonymized file: "+outFile+"\n");
+				if (ok) {
+					sb.append("   Anonymized file: "+outFile+"\n");
+					if (check != null) {
+						try {
+							dob = new DicomObject(outFile);
+							if (dob.isImage()) {
+								int numberOfFrames = dob.getNumberOfFrames();
+								if (numberOfFrames == 0) numberOfFrames++;
+								BufferedImage img = null;
+								if (check.equals("all")) {
+									for (int k=0; k<numberOfFrames; k++) {
+										img = dob.getBufferedImage(k, false);
+									}
+								}
+								else {
+									if (check.equals("") || check.equals("last")) {
+										img = dob.getBufferedImage(numberOfFrames - 1, false);
+									}
+									else if (check.equals("first")) {
+										img = dob.getBufferedImage(0, false);
+									}
+								}
+								if (verbose && (img != null)) {
+									sb.append("   Frame checking succeeded.\n");
+								}
+							}
+						}
+						catch (Exception ex) { 
+							sb.append("   Frame checking failed.");
+						}
+					}
+				}
 				else sb.append("   Anonymization failed.\n");
 			}
 			catch (Exception ex) {
