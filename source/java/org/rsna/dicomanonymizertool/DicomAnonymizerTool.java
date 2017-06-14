@@ -27,6 +27,9 @@ import java.util.concurrent.TimeUnit;
  */
 public class DicomAnonymizerTool {
 
+	static final String JPEGBaseline = "1.2.840.10008.1.2.4.50";
+	static final String JPEGLossLess = "1.2.840.10008.1.2.4.70";
+
 	/**
 	 * The main method to start the program.
 	 * @param args the list of arguments from the command line.
@@ -56,6 +59,8 @@ public class DicomAnonymizerTool {
 			System.out.println("  -dpa {pixelscriptfile} specifies the pixel anonymizer script file.");
 			System.out.println("       If -dpa is missing, pixel anonymization is not performed.");
 			System.out.println("       If {pixelscriptfile} is missing, the default pixel script is used.");
+			System.out.println("  -dec specifies that the image is to be decompressed if the pixel anonymizer requires it.");
+			System.out.println("  -rec specifies that the image is to be recompressed after pixel anonymization if it was decompressed.");
 			System.out.println("  -test specifies that the pixel anonymizer is to blank regions in mid-gray.");
 			System.out.println("  -check {frame} specifies that the anonymized image is to be tested to ensure that the images load.");
 			System.out.println("       If -check is missing, no frame checking is done.");
@@ -140,6 +145,9 @@ public class DicomAnonymizerTool {
 			dpaScriptFile = new File(path);
 		}
 		
+		boolean decompress = (argsTable.get("-dec") != null);
+		boolean recompress = (argsTable.get("-rec") != null);
+		
 		String check = argsTable.get("-check");
 		
 		boolean testmode = (argsTable.get("-test") != null);
@@ -152,13 +160,19 @@ public class DicomAnonymizerTool {
 		
 		DicomAnonymizerTool anonymizer =
 			new DicomAnonymizerTool(
-				daScriptFile, lookupTableFile, dpaScriptFile, setBIRElement, testmode, check, maxThreads, verbose);
+				daScriptFile, lookupTableFile, 
+				dpaScriptFile, decompress, recompress, setBIRElement, testmode, 
+				check, 
+				maxThreads, 
+				verbose);
 		anonymizer.go(inFile, outFile);
 	}
 	
 	public File daScriptFile;
 	public File lookupTableFile;
 	public File dpaScriptFile;
+	public boolean decompress;
+	public boolean recompress;
 	public boolean setBIRElement;
 	public boolean testmode;
 	public String check;
@@ -173,6 +187,8 @@ public class DicomAnonymizerTool {
 			File daScriptFile, 
 			File lookupTableFile, 
 			File dpaScriptFile, 
+			boolean decompress,
+			boolean recompress,
 			boolean setBIRElement, 
 			boolean testmode,
 			String check,
@@ -182,6 +198,8 @@ public class DicomAnonymizerTool {
 		this.daScriptFile = daScriptFile;
 		this.lookupTableFile = lookupTableFile;
 		this.dpaScriptFile = dpaScriptFile;
+		this.decompress = decompress;
+		this.recompress = recompress;
 		this.setBIRElement = setBIRElement;
 		this.testmode = testmode;
 		this.check = check;
@@ -272,9 +290,30 @@ public class DicomAnonymizerTool {
 							if (signature != null) {
 								Regions regions = signature.regions;
 								if ((regions != null) && (regions.size() > 0)) {
-									AnonymizerStatus status = DICOMPixelAnonymizer.anonymize(inFile, outFile, regions, setBIRElement, testmode);
+									boolean decompressed = false;
+									if (decompress && 
+											dob.isEncapsulated() && 
+												!dob.getTransferSyntaxUID().equals(JPEGBaseline)) {
+										if (DICOMDecompressor.decompress(inFile, outFile).isOK()) {
+											dob = new DicomObject(outFile);
+											decompressed = true;
+										}
+										else {
+											outFile.delete();
+											sb.append("Decompression failure.\n");
+										}
+									}
+									
+									AnonymizerStatus status = 
+										DICOMPixelAnonymizer.anonymize(dob.getFile(), outFile, regions, setBIRElement, testmode);
 									if (verbose || !status.isOK()) sb.append("   The DICOMPixelAnonymizer returned "+status.getStatus()+".\n");
+									
 									if (status.isOK()) {
+										if (decompressed && recompress) {
+											Transcoder transcoder = new Transcoder();
+											transcoder.setTransferSyntax(JPEGLossLess);
+											transcoder.transcode(outFile, outFile);
+										}
 										inFile = outFile;
 										ok = true;
 									}
