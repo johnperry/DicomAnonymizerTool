@@ -132,7 +132,8 @@ public class DicomAnonymizerTool {
 		path = argsTable.get("-f");
 		if (path == null) filterScriptFile = null;
 		else if (!path.equals("")) {
-			filterScriptFile = new File(path);
+			File f = new File(path);
+			if (f.exists()) filterScriptFile = f;
 		}
 		
 		File daScriptFile = new File("dicom-anonymizer.script");
