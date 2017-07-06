@@ -51,6 +51,9 @@ public class DicomAnonymizerTool {
 			System.out.println("       If {output} is missing and -in specifies a file, the anonymized file overwrites {input}");
 			System.out.println("       If {output} is present and -in specifies a file, the anonymized file is named {output}");
 			System.out.println("       If {output} is present and -in specifies a directory, an output directory named {output} is created.");
+			System.out.println("  -f {scriptfile} specifies the filter script.");
+			System.out.println("       If -f is missing, all files are accepted.");
+			System.out.println("       If {scriptfile} is missing, the default script is used.");
 			System.out.println("  -da {scriptfile} specifies the anonymizer script.");
 			System.out.println("       If -da is missing, element anonymization is not performed.");
 			System.out.println("       If {scriptfile} is missing, the default script is used.");
@@ -125,6 +128,13 @@ public class DicomAnonymizerTool {
 			outFile.mkdirs();
 		}
 		
+		File filterScriptFile = new File("dicom-filter.script");
+		path = argsTable.get("-f");
+		if (path == null) filterScriptFile = null;
+		else if (!path.equals("")) {
+			filterScriptFile = new File(path);
+		}
+		
 		File daScriptFile = new File("dicom-anonymizer.script");
 		path = argsTable.get("-da");
 		if (path == null) daScriptFile = null;
@@ -160,6 +170,7 @@ public class DicomAnonymizerTool {
 		
 		DicomAnonymizerTool anonymizer =
 			new DicomAnonymizerTool(
+				filterScriptFile,
 				daScriptFile, lookupTableFile, 
 				dpaScriptFile, decompress, recompress, setBIRElement, testmode, 
 				check, 
@@ -168,6 +179,7 @@ public class DicomAnonymizerTool {
 		anonymizer.go(inFile, outFile);
 	}
 	
+	public File filterScriptFile;
 	public File daScriptFile;
 	public File lookupTableFile;
 	public File dpaScriptFile;
@@ -176,6 +188,7 @@ public class DicomAnonymizerTool {
 	public boolean setBIRElement;
 	public boolean testmode;
 	public String check;
+	public String filterScript = null;
 	public int maxThreads;
 	public boolean verbose = false;
 	final ThreadPoolExecutor execSvc;
@@ -184,6 +197,7 @@ public class DicomAnonymizerTool {
 	boolean allQueued = false;
 
 	public DicomAnonymizerTool(
+			File filterScriptFile, 
 			File daScriptFile, 
 			File lookupTableFile, 
 			File dpaScriptFile, 
@@ -195,6 +209,7 @@ public class DicomAnonymizerTool {
 			int maxThreads,
 			boolean verbose) {
 				
+		this.filterScriptFile = filterScriptFile;
 		this.daScriptFile = daScriptFile;
 		this.lookupTableFile = lookupTableFile;
 		this.dpaScriptFile = dpaScriptFile;
@@ -208,6 +223,8 @@ public class DicomAnonymizerTool {
 		
 		queue = new LinkedBlockingQueue<Runnable>();
 		execSvc = new ThreadPoolExecutor( maxThreads, maxThreads, 0L, TimeUnit.MILLISECONDS, queue );
+		
+		
 	}
 	
 	public void go(File inFile, File outFile) {
@@ -273,6 +290,20 @@ public class DicomAnonymizerTool {
 				parent.notify(sb.toString());
 				return;
 			}
+			
+			if (filterScriptFile != null) {
+				if (filterScript == null) {
+					filterScript = FileUtil.getText(filterScriptFile);
+				}
+				if (!dob.matches(filterScript)) {
+					if (verbose) {
+						sb.append("----\nThread: "+Thread.currentThread().getName()+": ");
+						sb.append("Skipping non-matching DICOM file: "+inFile+"\n");
+					}
+					parent.notify(sb.toString());
+					return;
+				}
+			}					
 
 			sb.append("----\nThread: "+Thread.currentThread().getName()+": ");
 			try {
