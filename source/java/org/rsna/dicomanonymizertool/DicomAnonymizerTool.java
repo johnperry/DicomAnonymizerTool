@@ -57,6 +57,14 @@ public class DicomAnonymizerTool {
 			System.out.println("  -da {scriptfile} specifies the anonymizer script.");
 			System.out.println("       If -da is missing, element anonymization is not performed.");
 			System.out.println("       If {scriptfile} is missing, the default script is used.");
+			System.out.println("  -p{param} \"{value}\" specifies a value for the specified parameter.");
+			System.out.println("       {value} must be encapsulated in quotes.");
+			System.out.println("  -e{element} \"{script}\" specifies a script for the specified element.");
+			System.out.println("       {element} may be specified as a DICOM keyword, e.g. -ePatientName.");
+			System.out.println("       {element} may be specified as (group,element), e.g. -e(0010,0010).");
+			System.out.println("       {element} may be specified as [group,element], e.g. -e[0010,0010].");
+			System.out.println("       {element} may be specified as groupelement, e.g. -e00100010.");
+			System.out.println("       {script} must be encapsulated in quotes.");
 			System.out.println("  -lut {lookuptablefile} specifies the anonymizer lookup table properties file.");
 			System.out.println("       If -lut is missing, the default lookup table is used.");
 			System.out.println("  -dpa {pixelscriptfile} specifies the pixel anonymizer script file.");
@@ -141,6 +149,27 @@ public class DicomAnonymizerTool {
 		if (path == null) daScriptFile = null;
 		else if (!path.equals("")) {
 			daScriptFile = new File(path);
+		}
+		if (daScriptFile != null) {
+			DAScript daScript = DAScript.getInstance(daScriptFile);
+			Properties daProps = daScript.toProperties();
+			for (String key : argsTable.keySet()) {
+				if (key.startsWith("-e")) {
+					String value = argsTable.get(key);
+					String name = key.substring(2).trim();
+					int tag = DicomObject.getElementTag(name);
+					int group = (tag & 0xffff0000) >> 16;
+					int elem = tag & 0xffff;
+					String propKey = String.format("set.[%04x,%04x]",group,elem);
+					daProps.setProperty(propKey, value);
+				}
+				else if (key.startsWith("-p")) {
+					String value = argsTable.get(key);
+					String name = key.substring(2).trim();
+					String propKey = "param." + name;
+					daProps.setProperty(propKey, value);
+				}
+			}
 		}
 		
 		File lookupTableFile = new File("lookup-table.properties");
