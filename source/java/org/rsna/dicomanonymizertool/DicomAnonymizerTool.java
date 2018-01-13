@@ -89,7 +89,7 @@ public class DicomAnonymizerTool {
 		Hashtable<String,String> argsTable = new Hashtable<String,String>();
 		String switchName = null;
 		for (String arg : args) {
-			if (arg.startsWith("-")) {
+			if (arg.startsWith("-") && !arg.matches("^-[0-9]+(\\.[0-9]*)?$")) {
 				switchName = arg;
 				argsTable.put(switchName, "");
 			}
@@ -99,6 +99,17 @@ public class DicomAnonymizerTool {
 					switchName = null;
 				}
 			}
+		}
+		
+		if (argsTable.get("-debug") != null) {
+			System.out.println("Parameters:");
+			for (String key : argsTable.keySet()) {
+				String value = argsTable.get(key);
+				System.out.print("    " + key + ": ");
+				if (value == null) System.out.println("null");
+				else System.out.println("\""+value+"\"");
+			}
+			System.exit(0);
 		}
 
 		String path = argsTable.get("-in");
