@@ -12,10 +12,14 @@ import java.io.*;
 import java.util.*;
 import java.util.jar.*;
 import org.apache.log4j.*;
+import org.rsna.ctp.Configuration;
 import org.rsna.ctp.objects.*;
+import org.rsna.ctp.plugin.Plugin;
 import org.rsna.ctp.stdstages.anonymizer.*;
 import org.rsna.ctp.stdstages.anonymizer.dicom.*;
+import org.rsna.util.ClasspathUtil;
 import org.rsna.util.FileUtil;
+import org.rsna.util.ImageIOTools;
 
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -41,7 +45,7 @@ public class DicomAnonymizerTool {
 		Logger.getRootLogger().setLevel(Level.INFO);
 		
 		if (args.length == 0) {
-			System.out.println("Usage: java -jar DAT {parameters}");
+			System.out.println("Usage: java -jar DAT.jar {parameters}");
 			System.out.println("where:");
 			System.out.println("  -in {input} specifies the file or directory to be anonymized");
 			System.out.println("       If {input} is a directory, all files in it and its subdirectories are processed.");
@@ -101,7 +105,7 @@ public class DicomAnonymizerTool {
 			}
 		}
 		
-		if (argsTable.get("-debug") != null) {
+		if (argsTable.containsKey("-debug")) {
 			System.out.println("Parameters:");
 			for (String key : argsTable.keySet()) {
 				String value = argsTable.get(key);
@@ -196,12 +200,12 @@ public class DicomAnonymizerTool {
 			dpaScriptFile = new File(path);
 		}
 		
-		boolean decompress = (argsTable.get("-dec") != null);
-		boolean recompress = (argsTable.get("-rec") != null);
+		boolean decompress = (argsTable.containsKey("-dec"));
+		boolean recompress = (argsTable.containsKey("-rec"));
 		
 		String check = argsTable.get("-check");
 		
-		boolean testmode = (argsTable.get("-test") != null);
+		boolean testmode = (argsTable.containsKey("-test"));
 		int maxThreads = 1;
 		try { maxThreads = Integer.parseInt(argsTable.get("-n")); }
 		catch (Exception ex) { }
@@ -262,10 +266,25 @@ public class DicomAnonymizerTool {
 		this.maxThreads = maxThreads;
 		this.verbose = verbose;
 		
+		//If there is a config.xml file, load the CTP configuration
+		File configFile = new File("config.xml");
+		if (configFile.exists()) {
+			//Note: the next line is commented out to make the program work in Java9
+			//and later as well as Java7 and 8. This requires all jars to be on the 
+			//DAT.jar manifest's class path, which includes several dummy jar names
+			//(extension1.jar, extension2.jar, etc.) to allow plugins to be added
+			//for AnonymizerExtensions without having to rebuild DAT.
+			//ClasspathUtil.addJARs( new File( System.getProperty("user.dir") ) );
+			
+			//Load the configuration to register any plugins.
+			Configuration config = Configuration.load();
+			for (Plugin plugin : config.getPlugins()) {
+				plugin.start();
+			}
+		}		
+
 		queue = new LinkedBlockingQueue<Runnable>();
 		execSvc = new ThreadPoolExecutor( maxThreads, maxThreads, 0L, TimeUnit.MILLISECONDS, queue );
-		
-		
 	}
 	
 	public void go(File inFile, File outFile) {
@@ -480,6 +499,13 @@ public class DicomAnonymizerTool {
 		boolean isWindows = osName.toLowerCase().contains("windows");
 		boolean hasImageIOTools = (clib != null) && (jai != null);
 		boolean hasDLLs = (clibjiio != null) && (clibjiiosse2 != null) && (clibjiioutil != null);
+		
+		if (!hasImageIOTools) {
+			File userDir = new File(System.getProperty("user.dir"));
+			clib = FileUtil.getFile(userDir, "clibwrapper_jiio", ".jar");
+			jai = FileUtil.getFile(userDir, "jai_imageio", ".jar");
+			hasImageIOTools = (clib != null) && (jai != null);
+		}
 
 		String imageIOVersion = null;
 		if (hasImageIOTools) {
@@ -492,7 +518,6 @@ public class DicomAnonymizerTool {
 		System.out.println("java.version:          "+javaVersion);
 		System.out.println("sun.arch.data.model:   "+dataModel);
 		System.out.println("java.home:             "+javaHome);
-		System.out.println("java.home directory:   "+javaHomeDir);
 		System.out.println("clib:                  "+handleNull(clib));
 		System.out.println("jai:                   "+handleNull(jai));
 		System.out.println("jiio:                  "+handleNull(clibjiio));
@@ -501,23 +526,11 @@ public class DicomAnonymizerTool {
 		System.out.println("ImageIO Tools version: "+imageIOVersion);
 		System.out.println("");
 
-		if (isWindows) {
-			if (!is32bits) {
-				System.out.println("This "+osName+" system has a "+dataModel+" bit Java.");
-				System.out.println("It must be 32 bits if pixel anonymization is requested.");
-			}
-			if (!hasImageIOTools) {
-				System.out.println("This Java does not have the ImageIOTools installed.");
-				System.out.println("The ImageIOTools are required only for pixel anonymization.");
-			}
-			else {
-				if (!imageIOVersion.equals("1.1")) {
-					System.out.println("The ImageIOTools version is "+imageIOVersion+".");
-					System.out.println("Version 1.1 or later is required for pixel anonymization.");
-				}
-				if (!hasDLLs) System.out.println("This Java does not have the ImageIOTools native code extensions installed.");
-			}
+		if (isWindows && !hasDLLs) {
+			System.out.println("This Java does not have the ImageIOTools native code extensions installed.\n");
 		}
+		
+		System.out.println("Available codecs:\n"+ImageIOTools.listAvailableCodecs());
 	}
 	
 	private static String handleNull(File file) {
