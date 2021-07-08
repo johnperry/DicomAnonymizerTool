@@ -16,13 +16,13 @@
 	<property name="ctp" value="/Development/CTP"/>
 
 	<property name="title" value="DicomAnonymizerTool"/>
-	<property name="copyright" value="Copyright 2017 Radiological Society of North America"/>
+	<property name="copyright" value="Copyright 2021 Radiological Society of North America"/>
 
 	<path id="classpath">
-		<pathelement location="${libraries}/dcm4che.jar"/>
-		<pathelement location="${libraries}/log4j.jar"/>
-		<pathelement location="${libraries}/CTP.jar"/>
-		<pathelement location="${libraries}/util.jar"/>
+		<pathelement location="${libraries}/libraries/dcm4che.jar"/>
+		<pathelement location="${libraries}/libraries/log4j.jar"/>
+		<pathelement location="${libraries}/libraries/CTP.jar"/>
+		<pathelement location="${libraries}/libraries/util.jar"/>
 	</path>
 
 	<target name="init">
@@ -42,19 +42,35 @@
 	</target>
 
 	<target name="getLibraryJars">
-		<copy overwrite="true" todir="${libraries}">
+		<copy overwrite="true" todir="${libraries}/libraries">
 			<fileset dir="${ctp}/libraries">
 				<include name="CTP.jar"/>
 				<include name="dcm4che.jar"/>
 				<include name="log4j.jar"/>
 				<include name="util.jar"/>
+			</fileset>
+		</copy>
+		<copy overwrite="true" todir="${libraries}/imageio">
+			<fileset dir="${ctp}/libraries">
 				<include name="pixelmed_codec.jar"/>
 				<include name="dcm4che-imageio-rle-2.0.25.jar"/>
 			</fileset>
+			<fileset dir="${ctp}/libraries/imageio">
+				<include name="**"/>
+			</fileset>
+		</copy>
+	</target>
+	
+	<target name="getScriptFiles">
+		<copy overwrite="true" todir="${libraries}">
+			<fileset dir="${ctp}/source/files/scripts">
+				<include name="DicomPixelAnonymizer.script"/>
+			</fileset>
+			<globmapper from="DicomPixelAnonymizer.script" to="dicom-pixel-anonymizer.script"/>
 		</copy>
 	</target>
 
-	<target name="dicomanonymizertool" depends="init, getLibraryJars">
+	<target name="dicomanonymizertool" depends="init, getLibraryJars, getScriptFiles">
 
 		<javac srcdir="${java}" destdir="${build}" optimize="on"
 			classpathref="classpath"
@@ -65,17 +81,27 @@
 			<manifest>
 				<attribute name="Main-Class" value="org.rsna.dicomanonymizertool.DicomAnonymizerTool"/>
 				<attribute name="Class-Path" 
-					value= "dcm4che.jar 
-							log4j.jar 
-							CTP.jar 
-							util.jar 
-							pixelmed_codec.jar 
-							dcm4che-imageio-rle-2.0.25.jar
-							clibwrapper_jiio-1.2-pre-dr-b04.jar
-							jai_imageio-1.2-pre-dr-b04.jar
-							extensions1.jar
-							extensions2.jar
-							extensions3.jar"/>
+					value= 
+"libraries/dcm4che.jar 
+libraries/log4j.jar 
+libraries/CTP.jar 
+libraries/util.jar 
+imageio/clibwrapper_jiio-1.2-pre-dr-b04.jar
+imageio/dcm4che-imageio-rle-2.0.25.jar
+imageio/jai_imageio-1.2-pre-dr-b04.jar
+imageio/pixelmed_codec.jar
+imageio/pixelmed_imageio.jar
+imageio/slf4j-api-1.6.1.jar
+imageio/slf4j-log4j12-1.6.1.jar
+imageio/twelvemonkeys-common-image-3.6-SNAPSHOT.jar
+imageio/twelvemonkeys-common-io-3.6-SNAPSHOT.jar
+imageio/twelvemonkeys-common-lang-3.6-SNAPSHOT.jar
+imageio/twelvemonkeys-imageio-core-3.6-SNAPSHOT.jar
+imageio/twelvemonkeys-imageio-jpeg-3.6-SNAPSHOT.jar
+imageio/twelvemonkeys-imageio-metadata-3.6-SNAPSHOT.jar
+libraries/extensions1.jar
+libraries/extensions2.jar
+libraries/extensions3.jar"/>
 			</manifest>
 			<fileset dir="${build}"
 				excludes="${dicomanonymizertool}/Installer**"/>
@@ -85,8 +111,8 @@
 
 		<copy overwrite="true" todir="${build}/DicomAnonymizerTool">
 			<fileset dir="${products}" includes="DAT.jar"/>
-			<fileset dir="${libraries}" includes="*.*"/>
-			<fileset dir="${files}" includes="*.*"/>
+			<fileset dir="${libraries}" includes="**"/>
+			<fileset dir="${files}" includes="**"/>
 		</copy>
 
 		<jar destfile="${products}/DicomAnonymizerTool-installer.jar">

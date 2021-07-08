@@ -30,6 +30,8 @@ import java.util.concurrent.TimeUnit;
  * tool for invoking the DicomAnonymizer.
  */
 public class DicomAnonymizerTool {
+	
+	static Logger logger = null;
 
 	static final String JPEGBaseline = "1.2.840.10008.1.2.4.50";
 	static final String JPEGLossLess = "1.2.840.10008.1.2.4.70";
@@ -39,10 +41,21 @@ public class DicomAnonymizerTool {
 	 * @param args the list of arguments from the command line.
 	 */
     public static void main(String args[]) {
+		File logProps = new File("log4j.properties");
+		String propsPath = logProps.getAbsolutePath();
+		if (!logProps.exists()) {
+			System.out.println("Logger configuration file: "+propsPath);
+			System.out.println("Logger configuration file not found.");
+		}
+		PropertyConfigurator.configure(propsPath);
+		logger = Logger.getLogger(DicomAnonymizerTool.class);
+		Logger.getRootLogger().setLevel(Level.INFO);
+
+		/*
 		Logger.getRootLogger().addAppender(
 				new ConsoleAppender(
 					new PatternLayout("%d{HH:mm:ss} %-5p [%c{1}] %m%n")));
-		Logger.getRootLogger().setLevel(Level.INFO);
+		*/
 		
 		if (args.length == 0) {
 			System.out.println("Usage: java -jar DAT.jar {parameters}");
