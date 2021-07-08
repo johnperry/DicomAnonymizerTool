@@ -1,0 +1,326 @@
+Burned-in Annotation Library
+
+This DicomPixelAnonymizer script file contains known regions in certain modality 
+images where PHI has been found to be present. This script has been compiled from
+the contributions of many users. Additional contributions are welcome.
+
+Important note: It is the responsibility of the user to review DICOM images to be 
+sure that all areas of PHI are removed from an image before it is considered
+anonymized.  If you have additional filetypes and signatures to add to this list,
+please send them to johnperry@dls.net.
+
+For information on the DicomPixelAnonymizer and the format of this file,see:
+	http://mircwiki.rsna.org/index.php?title=The_CTP_DICOM_Pixel_Anonymizer
+
+
+**************
+     CT
+**************
+GE 
+
+ CT Dose Series
+  { CodeMeaning.containsIgnoreCase("IEC Body Dosimetry Phantom") }
+  (0,0,512,200)
+
+  { SeriesDescription.containsIgnoreCase("Dose Report") }
+  (0,0,512,110)
+
+  { Manufacturer.containsIgnoreCase("GE MEDICAL") *
+    CommentsOnRadiationDose.containsIgnoreCase("DLP") }
+  (0,0,512,110)
+
+ AW Workstation
+
+  { BurnedInAnnotation.containsIgnoreCase("YES") * 
+    Manufacturer.containsIgnoreCase("GE MEDICAL") *
+    SeriesDescription.containsIgnoreCase("AW electronic film") }
+  (0,0,512,80)
+
+ 512 x 512 screen captures
+  { BurnedInAnnotation.containsIgnoreCase("YES") * 
+    Manufacturer.containsIgnoreCase("GE MEDICAL") *
+    Rows.equals("512") }
+  (0,0,512,25)
+
+ 512 x 512 screen captures - Vessel analysis
+  { BurnedInAnnotation.containsIgnoreCase("YES") * 
+    Manufacturer.containsIgnoreCase("GE MEDICAL") *
+    SeriesDescription.containsIgnoreCase("AVA Report") *
+    Rows.equals("512") }
+  (0,0,200,250)
+
+ 512 x 512 screen captures - Volume Rendering - MRCP
+  { ImageType.containsIgnoreCase("VOLREN") *
+    Rows.equals("512") *
+    Columns.equals("512") }
+   (350,0,162,30) (390,80,122,15)
+
+ 1024 x 1024 screen captures
+  { BurnedInAnnotation.containsIgnoreCase("YES") * 
+    Manufacturer.containsIgnoreCase("GE MEDICAL") *
+    Rows.equals("1024") }
+  (0,0,300,150)   (724,0,300,150)
+
+VITREA
+
+ Stent Planning Worksheet
+  { Manufacturer.containsIgnoreCase("VITAL Images") *
+    ( SeriesDescription.containsIgnoreCase("AAA") + SeriesDescription.containsIgnoreCase("Report") ) *
+    Rows.equals("1041") }
+  (0,0,795,150)
+
+SIEMENS
+
+  CT Dose Series - This removes PHI from Top of Dose image but rest of image is all white. Window Width and Center need to be set correctly.
+  { ImageType.containsIgnoreCase("SECONDARY") * 
+    Modality.containsIgnoreCase("CT") * 
+    Manufacturer.containsIgnoreCase("SIEMENS") * 
+    Rows.equals("860") }
+  (0,0,1132,60)
+
+PHILIPS
+
+  { Manufacturer.containsIgnoreCase("PHILIPS") *
+    ImageType.containsIgnoreCase("DOSE") }
+  (0,0,512,135)
+
+Toshiba Aquilion One CT Dose Series
+  { Modality.equals("CT") *
+    Manufacturer.containsIgnoreCase("TOSHIBA") *
+    ManufacturerModelName.containsIgnoreCase("Aquilion ONE") *
+    ImageType.containsIgnoreCase("SECONDARY") *
+    Columns.equals("512") *
+    Rows.equals("512") *
+    WindowWidth.equals("1") }
+  (0,0,410,240)
+
+**************
+     PET/CT
+**************
+SIEMENS 
+  This is an overlay
+  { [6000,0022].containsIgnoreCase("Siemens MedCom Object Graphics") }
+  (0,0,512,90)
+
+Philips
+  { Modality.equals("PT") *
+    [0008,0070].containsIgnoreCase("Philips Medical Systems") *
+    [0008,1090].containsIgnoreCase("GEMINI") *
+    [0028,0010].equals("446") *
+    [0028,0011].equals("245") }
+  (0,0,125,50)
+
+  { Modality.equals("PT") *
+    [0008,0070].containsIgnoreCase("Philips Medical Systems") *
+    [0008,1090].containsIgnoreCase("GEMINI") *
+    [0028,0010].equals("445") *
+    [0028,0011].equals("493") }
+  (0,0,140,55)
+
+  { Modality.equals("PT") *
+    [0008,0070].containsIgnoreCase("Philips Medical Systems") *
+    [0008,1090].containsIgnoreCase("GEMINI") *
+    [0028,0010].equals("373") *
+    [0028,0011].equals("492") }
+  (0,0,100,25)
+
+**************
+     US
+**************
+
+MINDRAY
+  { Modality.equals("US") * 
+    ImplementationVersionName.contains("MINDRAY") }
+  (0,0,1229,69)
+
+GE 
+ Logiq US
+  { ManufacturerModelName.containsIgnoreCase("LOGIQ9") }
+  (0,0,640,40)
+
+  { ManufacturerModelName.containsIgnoreCase("LOGIQE9") }
+  (0,0,960,70)
+
+  { ManufacturerModelName.containsIgnoreCase("V830") }
+  (0,0,960,70)
+
+
+Philips 
+ IU22
+  { ManufacturerModelName.containsIgnoreCase("iU22") *
+    Rows.equals("480") }
+  (0,0,640,47)
+
+ IU22
+  { ManufacturerModelName.containsIgnoreCase("iU22") *
+    Rows.equals("768") }
+  (0,0,1024,75)
+
+
+ IU22
+  { ManufacturerModelName.containsIgnoreCase("iU22") *
+    Rows.equals("600") }
+  (0,0,800,59)
+
+ EPIQ 7G
+  { ManufacturerModelName.containsIgnoreCase("EPIQ") *
+    Rows.equals("600") }
+  (0,0,1024,49)
+
+ EPIQ 7G
+  { ManufacturerModelName.containsIgnoreCase("EPIQ") *
+    Rows.equals("768") }
+  (0,0,1024,49)
+
+  CX50
+   { ManufacturerModelName.containsIgnoreCase("CX50") *
+    Rows.equals("600") }
+  (0,0,800,59)
+
+Zonare
+  { ManufacturerModelName.containsIgnoreCase("Z_ONE") }
+  (0,0,800,65)
+  
+ATL
+  { Modality.equals("US") *
+    Manufacturer.containsIgnoreCase("ATL") *
+    ManufacturerModelName.containsIgnoreCase("HDI 5000") *
+    Rows.equals("476") *
+    Columns.equals("640") }
+  (40,0,200,40) (240,0,190,16)
+  
+Siemens
+{ Modality.equals("US") *
+    Manufacturer.containsIgnoreCase("SIEMENS") *
+    ManufacturerModelName.containsIgnoreCase("SC2000") *
+    ImageType.containsIgnoreCase("SECONDARY") *
+    Rows.equals("768") *
+    Columns.equals("1024") }
+  (230,50,260,370)
+
+{ Modality.equals("US") *
+    Manufacturer.containsIgnoreCase("SIEMENS") *
+    ManufacturerModelName.containsIgnoreCase("ANTARES") *
+    Rows.equals("768") *
+    Columns.equals("1024") }
+  (0,0,1024,60) (200,60,20,20) (800,65,104,14) 
+
+{ Modality.equals("US") *
+    Manufacturer.containsIgnoreCase("SIEMENS") *
+    ManufacturerModelName.containsIgnoreCase("ACUSON") *
+    Rows.equals("600") *
+    Columns.equals("800") }
+  (0,0,800,43) (128,56,16,16)
+
+{ Modality.equals("US") *
+    Manufacturer.containsIgnoreCase("SIEMENS") *
+    ManufacturerModelName.containsIgnoreCase("S2000") *
+    Rows.equals("768") *
+    Columns.equals("1024") }
+  (0,0,1024,60)
+
+Acuson
+{ Modality.equals("US") *
+    Manufacturer.containsIgnoreCase("ACUSON") *
+    ManufacturerModelName.containsIgnoreCase("SEQUOIA") *
+    Rows.equals("480") *
+    Columns.equals("640") }
+  (0,0,640,30)
+
+Toshiba Aplio 500
+  { Modality.equals("US") *
+    Manufacturer.containsIgnoreCase("TOSHIBA") *
+    ManufacturerModelName.containsIgnoreCase("A500") *
+    Rows.equals("720") *
+    Columns.equals("960") }
+  (0,0,960,60)
+
+Toshiba Aplio 400
+  { Modality.equals("US") *
+    Manufacturer.containsIgnoreCase("TOSHIBA") *
+    ManufacturerModelName.containsIgnoreCase("A400") *
+    Rows.equals("720") *
+    Columns.equals("960") }
+  (0,0,960,60)
+
+Supersonic Imagine 5A
+  { Modality.equals("US") *
+    Manufacturer.containsIgnoreCase("SuperSonic Imagine SA") *
+    ManufacturerModelName.containsIgnoreCase("Aixplorer") *
+    Rows.equals("1050") *
+    Columns.equals("1400") }
+  (0,0,1400,89)
+
+SENO
+  { Modality.equals("US") *
+    Manufacturer.containsIgnoreCase("SENO") *
+    Rows.equals("1058") *
+    Columns.equals("1920") }
+  (161,0,1632,50)
+
+SENO Cine
+  { Modality.equals("US") *
+    Manufacturer.containsIgnoreCase("SENO") *
+    Rows.equals("1056") *
+    Columns.equals("1920") }
+  (161,0,1632,50)
+
+************** 
+     MRI
+**************
+
+**************
+   CR / DR 
+**************
+
+Canon
+  { Manufacturer.containsIgnoreCase("Canon") * 
+    ManufacturerModelName.containsIgnoreCase("CXDI") * 
+    Rows.equals("2592") }
+  (0,0,2208,80) (0,2512,2208,80)
+
+**************
+     NM
+**************
+
+SIEMENS
+  { ImageType.containsIgnoreCase("SECONDARY") * 
+    Modality.containsIgnoreCase("NM") * 
+    Manufacturer.containsIgnoreCase("SIEMENS") * 
+    Rows.equals("860") }
+  (0,0,1132,90) (0,780,1132,80)
+
+  { ImageType.containsIgnoreCase("SECONDARY") *
+    Modality.containsIgnoreCase("NM") *
+    Manufacturer.containsIgnoreCase("SIEMENS") *
+    Rows.equals("865") }
+  (0,0,1132,35)
+
+  { ImageType.containsIgnoreCase("SECONDARY") *
+    Modality.containsIgnoreCase("NM") *
+    Manufacturer.containsIgnoreCase("SIEMENS") *
+    Rows.equals("882") }
+  (0,0,1132,65)
+
+**************
+    OTHER
+**************
+
+ADAC
+  { Manufacturer.containsIgnoreCase("ADAC") *
+    Rows.equals("832") *
+    Columns.equals("1024") }
+  (0,0,1024,80) (0,762,1024,80)
+
+  { Manufacturer.containsIgnoreCase("ADAC") *
+    Rows.equals("832") *
+    Columns.equals("1024") *
+    [0018,1030].containsIgnoreCase("DUAL DETEC") }
+  (0,0,1024,130) (0,762,1024,80)
+ 
+MEDRAD Injection Profile
+  { SeriesDescription.containsIgnoreCase("MEDRAD") *
+    Rows.equals("1077") *
+    Columns.equals("750") }
+  (0,0,750,230)
+  
