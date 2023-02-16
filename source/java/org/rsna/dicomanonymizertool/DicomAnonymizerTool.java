@@ -35,6 +35,7 @@ public class DicomAnonymizerTool {
 
 	static final String JPEGBaseline = "1.2.840.10008.1.2.4.50";
 	static final String JPEGLossLess = "1.2.840.10008.1.2.4.70";
+	static final String DEFUALT_OUTPUT_FILE_FORMAT = "%PatientName%-%Modality%%StudyID%-%StudyDescription%-%StudyDate%/%SeriesNumber%_%SeriesDescription%-%InstanceNumber%.dcm";
 
 	/**
 	 * The main method to start the program.
@@ -62,6 +63,9 @@ public class DicomAnonymizerTool {
 			System.out.println("where:");
 			System.out.println("  -in {input} specifies the file or directory to be anonymized");
 			System.out.println("       If {input} is a directory, all files in it and its subdirectories are processed.");
+			System.out.println("  -outPattern {pattern} specifies the pattern for the name of the anonymized file or files and path.");
+			System.out.println(String.format("  	  If no value for -outPattern is specified, it uses default - %s",DEFUALT_OUTPUT_FILE_FORMAT));
+			System.out.println("  	  If both -outPattern and -out {output} are specified, and -in is a file, the -out {output} takes the precedence");
 			System.out.println("  -out {output} specifies the file or directory in which to store the anonymized file or files.");
 			System.out.println("       If -out is missing and -in specifies a file, the anonymized file is named {input}-an.");
 			System.out.println("       If -out is missing and -in specifies a directory, an output directory named {input}-an is created.");
@@ -142,16 +146,20 @@ public class DicomAnonymizerTool {
 		
 		path = argsTable.get("-out");
 		File outFile = inFile;
+		String outFileNameFormat = argsTable.containsKey("-outPattern") ? 
+			argsTable.get("-outPattern") != null && !argsTable.get("-outPattern").isEmpty() ? argsTable.get("-outPattern"): DEFUALT_OUTPUT_FILE_FORMAT : null;
+		boolean useOutputFileNameFormat = argsTable.containsKey("-out") 
+			&& argsTable.get("-out") != null ? false : true;
 		if (path == null) {
 			File f = new File(inFile.getAbsolutePath());
 			String name = f.getName();
 			if (name.toLowerCase().endsWith(".dcm")) {
-				name = name.substring(0, name.length()-4) 
-						+ "-an" 
-						+ name.substring(name.length()-4);
+					name = name.substring(0, name.length()-4) 
+					+ "-an" 
+					+ name.substring(name.length()-4);
 			}
 			else name += "-an";
-			outFile = new File(f.getParentFile(), name);
+				outFile = new File(f.getParentFile(), name);
 		}
 		else if (!path.equals("")) {
 			outFile = new File(path);
@@ -160,8 +168,9 @@ public class DicomAnonymizerTool {
 			if (outFile.exists() && outFile.isFile()) {
 				System.out.println("Output path ("+path+") exists but it is not a directory.");
 				System.exit(0);
-			}				
-			outFile.mkdirs();
+			}
+			if (outFileNameFormat == null)			
+				outFile.mkdirs();
 		}
 		
 		File filterScriptFile = new File("dicom-filter.script");
@@ -234,7 +243,7 @@ public class DicomAnonymizerTool {
 				check, 
 				maxThreads, 
 				verbose);
-		anonymizer.go(inFile, outFile);
+		anonymizer.go(inFile, outFile, outFileNameFormat, useOutputFileNameFormat);
 	}
 	
 	public File filterScriptFile;
@@ -300,26 +309,29 @@ public class DicomAnonymizerTool {
 		execSvc = new ThreadPoolExecutor( maxThreads, maxThreads, 0L, TimeUnit.MILLISECONDS, queue );
 	}
 	
-	public void go(File inFile, File outFile) {
+	public void go(File inFile, File outFile, String outFileFormat, boolean useOutputFileNameFormat) {
 		startTime = System.currentTimeMillis();
-		anonymize(inFile, outFile);
+		// If the inFile is a file and if outFile is supplied, we will use it
+		anonymize(inFile, outFile, outFileFormat, useOutputFileNameFormat);
 		allQueued = true;
 	}
 	
-	public void anonymize(File inFile, File outFile) { 
+	public void anonymize(File inFile, File outFile, String outFileFormat, boolean useOutputFileNameFormat) { 
 		if (inFile.isFile()) {
-			execSvc.execute( new Processor(inFile, outFile, this) );
+			outFileFormat = useOutputFileNameFormat ? outFileFormat : null;
+			execSvc.execute( new Processor(inFile, outFile, outFileFormat, this) );
 		}
 		else {
+			useOutputFileNameFormat = true;
 			File[] files = inFile.listFiles();
 			for (File file : files) {
 				if (file.isDirectory()) {
 					File dir = new File(outFile, file.getName());
 					dir.mkdirs();
-					anonymize(file, dir);
+					anonymize(file, dir, outFileFormat, useOutputFileNameFormat);
 				}
 				else {
-					anonymize(file, new File(outFile, file.getName()));
+					anonymize(file, new File(outFile, file.getName()), outFileFormat, useOutputFileNameFormat);
 				}
 			}
 		}
@@ -338,13 +350,15 @@ public class DicomAnonymizerTool {
 	class Processor extends Thread {
 		File inFile;
 		File outFile;
+		String outFileFormat;
 		DicomAnonymizerTool parent;
 		
-		public Processor(File inFile, File outFile, DicomAnonymizerTool parent) {
+		public Processor(File inFile, File outFile, String outFileFormat, DicomAnonymizerTool parent) {
 			super();
 			this.inFile = inFile;
 			this.outFile = outFile;
 			this.parent = parent;
+			this.outFileFormat = outFileFormat;
 		}
 	
 		public void run() {
@@ -440,8 +454,9 @@ public class DicomAnonymizerTool {
 					Properties daScriptProps = daScript.toProperties();
 					Properties lutProps = LookupTable.getProperties(lookupTableFile);
 					IntegerTable intTable = null;
+					System.out.println("Output file names will have fomrat : " + outFileFormat);
 					AnonymizerStatus status =
-								DICOMAnonymizer.anonymize(inFile, outFile, daScriptProps, lutProps, intTable, false, false);
+								DICOMAnonymizer.anonymize(inFile, outFile, daScriptProps, lutProps, intTable, false, false, outFileFormat);
 					if (verbose || !status.isOK()) sb.append("   The DICOMAnonymizer returned "+status.getStatus()+".\n");
 					if (status.isOK()) {
 						ok = true;
