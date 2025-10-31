@@ -134,6 +134,7 @@ libraries/extensions3.jar"/>
 	<target name="javadocs">
 		<mkdir dir="${documentation}"/>
 		<javadoc destdir="${documentation}" sourcepath="${java}" classpathref="classpath"
+			additionalparam="-Xdoclint:none"
 			doctitle="${title}" windowtitle="${title}" bottom="${copyright}">
 			<package name="*"/>
 		</javadoc>
